@@ -27,6 +27,7 @@ SOFTWARE.*/
 // @version     3.63
 // @grant       none
 // @author      http://www.twitch.tv/apostolique
+// @require     http://www.parsecdn.com/js/parse-1.5.0.min.js
 // ==/UserScript==
 
 var aposFeedingBotVersion = 3.63;
@@ -69,7 +70,7 @@ function getLatestCommit() {
                 window.jQuery("#" + prefix + "Dialog").show();
             }
 
-            $.get('https://raw.githubusercontent.com/Apostolique/AposFeedingBot/master/bot.user.js?' + Math.floor((Math.random() * 1000000) + 1), function(data) {
+            $.get('https://raw.githubusercontent.com/Apostolique/AposFeedingBot/master/AposFeedingBot.user.js?' + Math.floor((Math.random() * 1000000) + 1), function(data) {
                 var latestVersion = data.replace(/(\r\n|\n|\r)/gm,"");
                 latestVersion = latestVersion.substring(latestVersion.indexOf("// @version")+11,latestVersion.indexOf("// @grant"));
 
@@ -78,9 +79,9 @@ function getLatestCommit() {
                 
                 if(latestVersion > myVersion)
                 {
-                    update("aposFeedingBot", "bot.user.js", "https://github.com/Apostolique/AposFeedingBot/blob/" + sha + "/bot.user.js/");
+                    update("aposFeedingBot", "AposFeedingBot.user.js", "https://github.com/Apostolique/AposFeedingBot/blob/" + sha + "/AposFeedingBot.user.js/");
                 }
-                console.log('Current bot.user.js Version: ' + myVersion + " on Github: " + latestVersion);
+                console.log('Current AposFeedingBot.user.js Version: ' + myVersion + " on Github: " + latestVersion);
             });
 
         }).fail(function() {});
@@ -92,6 +93,7 @@ console.log("Running Apos Feeding Bot!");
 var f = window;
 var g = window.jQuery;
 
+Parse.initialize("nj3ycKuqW4k4CnzN1ZYtMYowoa97qNw7NafLimrF", "nh6arPQQxbE5rFOyR0dCgecQiDAN54Zgjsf7eAKH");
 
 console.log("Apos Feeding Bot!");
 
@@ -109,19 +111,35 @@ window.botList = window.botList || [];
 
 window.botList.push(new QuickBot());*/
 
+
 function AposBot() {
     this.name = "AposFeedingBot " + aposFeedingBotVersion;
 
+    this.lastMasterUpdate = Date.now();
+    this.MasterLocation = Parse.Object.extend("MasterLocation");
+
     this.toggleFollow = false;
+    this.master = false;
+
+    this.masterLocation = [100, 100];
+    this.masterId = 0;
+
     this.keyAction = function(key) {
         if (81 == key.keyCode) {
             console.log("Toggle Follow Mouse!");
             this.toggleFollow = !this.toggleFollow;
         }
+        if (77 == key.keyCode) {
+            console.log("Toggle Master!");
+            this.master = !this.master;
+        }
     };
 
     this.displayText = function() {
-        return ["Q - Follow Mouse: " + (this.toggleFollow ? "On" : "Off")];
+        var theText = [];
+        theText.push("Q - Follow Mouse: " + (this.toggleFollow ? "On" : "Off"));
+        theText.push("M - Status: " + (this.master ? "Master" : "Slave"));
+        return theText;
     };
 
     this.splitDistance = 710;
@@ -262,6 +280,7 @@ function AposBot() {
         var threatList = [];
         var virusList = [];
         var splitTargetList = [];
+        var foundMaster = [];
 
         var player = getPlayer();
 
@@ -269,23 +288,28 @@ function AposBot() {
             var isMe = that.isItMe(player, listToUse[element]);
 
             if (!isMe) {
-                if (that.isFood(blob, listToUse[element]) && listToUse[element].isNotMoving()) {
+                if (!that.master && listToUse[element].id == that.masterId) {
+                    foundMaster.push(listToUse[element]);
+                    console.log("Found master! " + that.masterId + ", " + listToUse[element].id);
+                } else if (that.isFood(blob, listToUse[element]) && listToUse[element].isNotMoving()) {
                     //IT'S FOOD!
                     foodElementList.push(listToUse[element]);
-
-                    
                 } else if (that.isThreat(blob, listToUse[element])) {
                     //IT'S DANGER!
-                    threatList.push(listToUse[element]);
+                    if ((!that.master && listToUse[element].id != that.masterId) || that.master) {
+                        threatList.push(listToUse[element]);
+                    } else {
+                        console.log("Found master! " + that.masterId);
+                    }
                 } else if (that.isVirus(blob, listToUse[element])) {
                     //IT'S VIRUS!
                     virusList.push(listToUse[element]);
                 }
                 else if (that.isSplitTarget(that, blob, listToUse[element])) {
-                        drawCircle(listToUse[element].x, listToUse[element].y, listToUse[element].size + 50, 7);
-                        splitTargetList.push(listToUse[element]);
-                        foodElementList.push(listToUse[element]);
-                    }
+                    drawCircle(listToUse[element].x, listToUse[element].y, listToUse[element].size + 50, 7);
+                    splitTargetList.push(listToUse[element]);
+                    foodElementList.push(listToUse[element]);
+                }
             }/*else if(isMe && (getBlobCount(getPlayer()) > 0)){
                 //Attempt to make the other cell follow the mother one
                 foodElementList.push(listToUse[element]);
@@ -297,7 +321,7 @@ function AposBot() {
             foodList.push([foodElementList[i].x, foodElementList[i].y, foodElementList[i].size]);
         }
 
-        return [foodList, threatList, virusList, splitTargetList];
+        return [foodList, threatList, virusList, splitTargetList, foundMaster];
     };
 
     this.getAll = function(blob) {
@@ -769,6 +793,10 @@ function AposBot() {
         var player = getPlayer();
         var interNodes = getMemoryCells();
 
+        if (getMode() != ":party") {
+            this.master = true;
+        }
+
         if ( /*!toggle*/ 1) {
             //The following code converts the mouse position into an
             //absolute game coordinate.
@@ -790,6 +818,28 @@ function AposBot() {
 
             //Just to make sure the player is alive.
             if (player.length > 0) {
+                if (!this.master && Date.now() - this.lastMasterUpdate > 5000) {
+                    var query = new Parse.Query(this.MasterLocation);
+                    var self = this;
+                    query.equalTo("party", window.encodeURIComponent(window.location.hash));
+                    query.first().then(function(object) {
+                            if (typeof object != 'undefined') {
+                                console.log("Previous Location: " + self.masterLocation);
+                                console.log("Going to: " + object.get("location"));
+                                self.masterLocation = object.get("location");
+                                self.masterLocation = object.get("location");
+                                self.masterId = object.get("cellId");
+                                console.log("Updated Location: " + self.masterLocation);
+                            } else {
+                                console.log("No master was found... Let's be the master.");
+                                self.master = true;
+                            }
+                        },
+                        function(error) {
+                            console.log("Error: " + error.code + " " + error.message);
+                        });
+                    this.lastMasterUpdate = Date.now();
+                }
 
                 //Loop through all the player's cells.
                 for (var k = 0; k < player.length; k++) {
@@ -797,7 +847,6 @@ function AposBot() {
                         drawPoint(player[k].x, player[k].y + player[k].size, 0, "" + (getLastUpdate() - player[k].birth) + " / " + (30000 + (player[k].birthMass * 57) - (getLastUpdate() - player[k].birth)) + " / " + player[k].birthMass);
                     }
                 }
-
 
                 //Loops only for one cell for now.
                 for (var k = 0; /*k < player.length*/ k < 1; k++) {
@@ -819,6 +868,12 @@ function AposBot() {
                     var allPossibleThreats = allIsAll[1];
                     //The viruses are stored in element 2 of allIsAll
                     var allPossibleViruses = allIsAll[2];
+
+                    if (allIsAll[4].length > 0) {
+                        console.log("Found my real Master! " + allIsAll[4][0].id);
+                        this.masterLocation = [allIsAll[4][0].x, allIsAll[4][0].y]
+                    }
+
 
                     //The bot works by removing angles in which it is too
                     //dangerous to travel towards to.
@@ -856,7 +911,7 @@ function AposBot() {
 
                         //console.log("Found distance.");
 
-                        var enemyCanSplit = this.canSplit(player[k], allPossibleThreats[i]);
+                        var enemyCanSplit = (this.master ? this.canSplit(player[k], allPossibleThreats[i]) : false);
                         
                         for (var j = clusterAllFood.length - 1; j >= 0 ; j--) {
                             var secureDistance = (enemyCanSplit ? splitDangerDistance : normalDangerDistance);
@@ -1046,7 +1101,18 @@ function AposBot() {
                         drawPoint(line2[0], line2[1], 0, "" + i + ": 1");
                     }
 
-                    if (this.toggleFollow && goodAngles.length == 0) {
+                    if (!this.master && goodAngles == 0 && (player[k].size * player[k].size / 100) > 50) {
+                        //This is the slave mode
+                        console.log("Really Going to: " + this.masterLocation);
+                        var distance = this.computeDistance(player[k].x, player[k].y, this.masterLocation[0], this.masterLocation[1]);
+
+                        var shiftedAngle = this.shiftAngle(obstacleAngles, this.getAngle(this.masterLocation[0], this.masterLocation[1], player[k].x, player[k].y), [0, 360]);
+
+                        var destination = this.followAngle(shiftedAngle, player[k].x, player[k].y, distance);
+
+                        destinationChoices = destination;
+                        drawLine(player[k].x, player[k].y, destination[0], destination[1], 1);
+                    } else if (this.toggleFollow && goodAngles.length == 0) {
                         //This is the follow the mouse mode
                         var distance = this.computeDistance(player[k].x, player[k].y, tempPoint[0], tempPoint[1]);
 
@@ -1183,6 +1249,40 @@ function AposBot() {
             //console.log("MOVING RIGHT NOW!");
 
             //console.log("______Never lied ever in my life.");
+
+            if (this.master) {
+                this.masterLocation = destinationChoices;
+                this.masterId = player[0].id;
+                if (Date.now() - this.lastMasterUpdate > 5000) {
+                    var self = this;
+                    var query = new Parse.Query(this.MasterLocation);
+                    query.equalTo("party", window.encodeURIComponent(window.location.hash));
+                    query.first({
+                        success: function(object) {
+                            console.log("Done query");
+                            if (typeof object != 'undefined') {
+                                object.set("location", destinationChoices);
+                                object.set("cellId", player[0].id);
+                                object.set("party", window.encodeURIComponent(window.location.hash));
+                                console.log("New location saved! " + object.get("location") + " ID: " + player[0].id + " Party: " + window.encodeURIComponent(window.location.hash));
+                                object.save();
+                            } else {
+                                console.log("We have a problem!");
+                                var ml = new self.MasterLocation();
+                                ml.set("location", destinationChoices);
+                                ml.set("cellId", player[0].id);
+                                ml.set("party", window.encodeURIComponent(window.location.hash));
+                                console.log("New location saved! " + ml.get("location") + " ID: " + player[0].id + " Party: " + window.encodeURIComponent(window.location.hash));
+                                ml.save();
+                            }
+                        },
+                        error: function(error) {
+                            console.log("Error: " + error.code + " " + error.message);
+                        }
+                    });
+                    this.lastMasterUpdate = Date.now();
+                }
+            }
 
             return destinationChoices;
         }
