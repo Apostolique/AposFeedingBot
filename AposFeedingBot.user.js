@@ -24,13 +24,13 @@ SOFTWARE.*/
 // @name        AposFeedingBot
 // @namespace   AposFeedingBot
 // @include     http://agar.io/*
-// @version     3.63
+// @version     3.7
 // @grant       none
 // @author      http://www.twitch.tv/apostolique
 // @require     http://www.parsecdn.com/js/parse-1.5.0.min.js
 // ==/UserScript==
 
-var aposFeedingBotVersion = 3.63;
+var aposFeedingBotVersion = 3.7;
 
 //TODO: Team mode
 //      Detect when people are merging
@@ -793,10 +793,6 @@ function AposBot() {
         var player = getPlayer();
         var interNodes = getMemoryCells();
 
-        if (getMode() != ":party") {
-            this.master = true;
-        }
-
         if ( /*!toggle*/ 1) {
             //The following code converts the mouse position into an
             //absolute game coordinate.
@@ -821,7 +817,7 @@ function AposBot() {
                 if (!this.master && Date.now() - this.lastMasterUpdate > 5000) {
                     var query = new Parse.Query(this.MasterLocation);
                     var self = this;
-                    query.equalTo("party", window.encodeURIComponent(window.location.hash));
+                    query.equalTo("server", getServer());
                     query.first().then(function(object) {
                             if (typeof object != 'undefined') {
                                 console.log("Previous Location: " + self.masterLocation);
@@ -1256,23 +1252,23 @@ function AposBot() {
                 if (Date.now() - this.lastMasterUpdate > 5000) {
                     var self = this;
                     var query = new Parse.Query(this.MasterLocation);
-                    query.equalTo("party", window.encodeURIComponent(window.location.hash));
+                    query.equalTo("server", getServer());
                     query.first({
                         success: function(object) {
                             console.log("Done query");
                             if (typeof object != 'undefined') {
                                 object.set("location", destinationChoices);
                                 object.set("cellId", player[0].id);
-                                object.set("party", window.encodeURIComponent(window.location.hash));
-                                console.log("New location saved! " + object.get("location") + " ID: " + player[0].id + " Party: " + window.encodeURIComponent(window.location.hash));
+                                object.set("server", getServer());
+                                console.log("New location saved! " + object.get("location") + " ID: " + player[0].id + " Server: " + getServer());
                                 object.save();
                             } else {
                                 console.log("We have a problem!");
                                 var ml = new self.MasterLocation();
                                 ml.set("location", destinationChoices);
                                 ml.set("cellId", player[0].id);
-                                ml.set("party", window.encodeURIComponent(window.location.hash));
-                                console.log("New location saved! " + ml.get("location") + " ID: " + player[0].id + " Party: " + window.encodeURIComponent(window.location.hash));
+                                ml.set("server", getServer());
+                                console.log("New location saved! " + ml.get("location") + " ID: " + player[0].id + " Server: " + getServer());
                                 ml.save();
                             }
                         },
