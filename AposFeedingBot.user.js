@@ -24,13 +24,13 @@ SOFTWARE.*/
 // @name        AposFeedingBot
 // @namespace   AposFeedingBot
 // @include     http://agar.io/*
-// @version     3.7
+// @version     3.71
 // @grant       none
 // @author      http://www.twitch.tv/apostolique
 // @require     http://www.parsecdn.com/js/parse-1.5.0.min.js
 // ==/UserScript==
 
-var aposFeedingBotVersion = 3.7;
+var aposFeedingBotVersion = 3.71;
 
 //TODO: Team mode
 //      Detect when people are merging
@@ -1097,7 +1097,7 @@ function AposBot() {
                         drawPoint(line2[0], line2[1], 0, "" + i + ": 1");
                     }
 
-                    if (!this.master && goodAngles == 0 && (player[k].size * player[k].size / 100) > 50) {
+                    if (!this.master && goodAngles.length == 0 && (player[k].size * player[k].size / 100) > 50) {
                         //This is the slave mode
                         console.log("Really Going to: " + this.masterLocation);
                         var distance = this.computeDistance(player[k].x, player[k].y, this.masterLocation[0], this.masterLocation[1]);
